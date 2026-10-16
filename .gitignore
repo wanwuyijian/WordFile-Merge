@@ -1,0 +1,31 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- PyInstaller ----
+build/
+dist/
+*.spec.bak
+
+# ---- 运行产物 / 日志 / 崩溃日志 ----
+logs/
+*.log
+crash-*.txt
+
+# ---- 自测产物 ----
+samples/
+output/
+out/
+selftest_out/
+.pytest_cache/
+
+# ---- 编辑器 ----
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini

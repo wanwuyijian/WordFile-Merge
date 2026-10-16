@@ -1,0 +1,16 @@
+# Word 合并工具 —— 运行依赖
+#
+# 直接安装：python -m pip install -r requirements.txt
+#
+# 说明：打包成 exe 后目标机器无需安装任何依赖，
+#       下面这些只是"从源码运行"或"重新打包"时需要。
+
+python-docx>=1.1.0        # 生成与读写 Word 文档（核心）
+python-pptx>=1.0.0        # 读取 PowerPoint
+openpyxl>=3.1.0           # 读取 Excel .xlsx/.xlsm
+PyMuPDF>=1.24.0           # PDF 渲染 + 内置幻灯片渲染器
+Pillow>=10.0.0            # 图片处理
+tkinterdnd2>=0.4.0        # 图形界面的拖拽支持（可选，缺了仍能跑，只是不能拖文件）
+
+# 打包用（仅开发机需要）
+pyinstaller>=6.0.0
