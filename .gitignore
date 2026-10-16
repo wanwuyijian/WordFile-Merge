@@ -9,6 +9,7 @@ env/
 # ---- PyInstaller ----
 build/
 dist/
+*.spec
 *.spec.bak
 
 # ---- 运行产物 / 日志 / 崩溃日志 ----
