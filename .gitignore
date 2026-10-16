@@ -30,3 +30,6 @@ selftest_out/
 *.swp
 Thumbs.db
 desktop.ini
+
+# ---- 工具生成的元数据 ----
+docs/agents/
