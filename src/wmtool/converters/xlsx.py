@@ -79,23 +79,20 @@ class XlsxConverter:
         for s_idx, (sheet_name, rows) in enumerate(sheets):
             if not rows:
                 continue
-            # 估算表格自然宽度，决定本表用纵向还是横向
+
+            # 决定这一张表用纵向还是横向页。
+            # 判据是"哪个方向能让字号更大"——横向可用宽度是纵向的 1.5 倍左右，
+            # 所以只要纵向需要把字号压到比横向更小，就该转横版（需求第 4 条）。
             widths = self._estimate_widths(rows)
             natural = sum(widths)
-            font_pt = FONT_MAX_PT
-            box = ctx.box
+            box, font_pt = self._choose_orientation(ctx, natural)
             usable = box.usable_width
-            if natural > usable:
-                # 纵向塞不下 -> 换横向页（这是需求第 4 条的核心动作）
-                if natural <= ctx.landscape_box.usable_width or natural <= usable * 1.6:
-                    box = ctx.landscape_box
-                    usable = box.usable_width
-                    wide_seen = True
-                    if s_idx > 0 or True:
-                        ctx.doc.add_page_break()
-                        new_section(ctx.doc, box)
-                if natural > usable:
-                    font_pt = max(FONT_MIN_PT, FONT_MAX_PT * usable / natural)
+
+            if box.landscape and not wide_seen:
+                wide_seen = True
+            if box.landscape:
+                ctx.doc.add_page_break()
+                new_section(ctx.doc, box)
 
             actual_widths = self._fit_widths(widths, usable)
 
@@ -247,8 +244,51 @@ class XlsxConverter:
     # 排版
     # ------------------------------------------------------------------ #
     @staticmethod
+    def _choose_orientation(ctx: ConvertContext, natural: int) -> tuple[PageBox, float]:
+        """选纵向还是横向页，并给出该方向下需要的字号。
+
+        规则（按优先级）：
+        1. 纵向放得下且不用缩字号 -> 纵向（最自然，大多数表都是这种）
+        2. 比较两个方向各自能给出的字号，谁大用谁
+        3. **两个方向都被压到最低字号时，选横向** —— 此时字号已经到顶了，
+           横向能给出更多可用宽度，列宽更宽裕，可读性严格更好
+
+        第 3 条是关键：如果只看字号，25 列和 40 列这种超宽表在横竖两边
+        都是"最低字号"，比较不出差别，就会错误地留在纵向。
+        """
+        portrait_usable = ctx.box.usable_width
+        landscape_usable = ctx.landscape_box.usable_width
+
+        def font_for(usable: int) -> float:
+            if natural <= usable:
+                return FONT_MAX_PT
+            return max(FONT_MIN_PT, FONT_MAX_PT * usable / natural)
+
+        p_font = font_for(portrait_usable)
+        l_font = font_for(landscape_usable)
+
+        # 1. 纵向够用就不折腾
+        if p_font >= FONT_MAX_PT:
+            return ctx.box, FONT_MAX_PT
+
+        # 3. 两边都触底：横向必然更好（可用宽度 1.5 倍），直接横版
+        if p_font <= FONT_MIN_PT and l_font <= FONT_MIN_PT:
+            return ctx.landscape_box, l_font
+
+        # 2. 横向要明显更好才转，避免 1.15 倍以内的来回横竖跳动
+        if l_font > p_font * 1.15:
+            return ctx.landscape_box, l_font
+        return ctx.box, p_font
+
+    @staticmethod
     def _estimate_widths(rows: list[list[str]]) -> list[int]:
-        """按每列最长内容估算自然列宽（EMU）。"""
+        """按每列最长内容估算自然列宽（EMU）。
+
+        注意这里**下限是 MIN_COL_EMU、上限是 MAX_COL_EMU**，但估算值本身
+        不受可用宽度约束——它代表"这张表最舒服需要多宽"。
+        真正压缩到页面里是后面 :meth:`_fit_widths` 的事。
+        如果在这里就把宽度卡死，方向判断（哪边字号更大）会永远得不出结论。
+        """
         n_cols = max((len(r) for r in rows), default=0)
         widths = [MIN_COL_EMU] * n_cols
         for row in rows:

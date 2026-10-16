@@ -197,25 +197,63 @@ word合并工具/
 │   ├── logging_setup.py     日志与崩溃日志
 │   ├── settings.py          用户设置持久化
 │   └── paths.py             路径与运行模式
+├── packaging/
+│   ├── entry_gui.py         PyInstaller 入口（GUI 版）
+│   ├── entry_cli.py         PyInstaller 入口（CLI 版）
+│   └── hooks/               打包钩子（收集 tkinterdnd2 原生库）
+├── tools/
+│   ├── run_all_tests.py     全量验证入口
+│   ├── run_unit_tests.py    单元测试
+│   ├── stress_test.py       极端尺寸压力测试
+│   ├── gui_layout_check.py  界面布局断言
+│   ├── gui_smoketest.py     界面交互冒烟
+│   └── gui_screenshot.py    自动截图（人工核对界面用）
+├── assets/app.ico           程序图标
 ├── build.ps1                一键打包
 ├── requirements.txt
 └── CHANGELOG.md
 ```
 
+> 关于打包入口：**不要**直接把 `src/wmtool/gui.py` 当 PyInstaller 入口。
+> 那样它是以 `__main__` 身份运行的，包内的相对导入（`from . import ...`）会报
+> `attempted relative import with no known parent package`。
+> `packaging/entry_*.py` 的作用就是绝对导入 `wmtool` 包再调 `main()`。
+
 ---
 
 ## 自检与回归
 
+一条命令跑完全部四层验证：
+
 ```powershell
-python -m wmtool.cli --selftest ".\selftest_out"
+python tools\run_all_tests.py                                  # 全部
+python tools\run_all_tests.py --exe dist\WordMergeTool-CLI.exe # 顺带验打包产物
+python tools\run_all_tests.py --no-gui                         # 无桌面环境
 ```
 
-自检会：**造样例 → 合并 → 校验**，覆盖全部格式，并断言：
+| 层 | 内容 | 耗时 |
+| --- | --- | --- |
+| 单元测试 | 几何缩放、横竖方向决策、Markdown 解析、docx 封装、日志与崩溃日志（64 项断言） | 秒级 |
+| 端到端自检 | 造出全部格式的样例 → 真合并一次 → 校验产物 | ~11s |
+| 压力测试 | 极端尺寸（20000×300 横幅、400×12000 竖图、A0 横向 PDF、40 列表格）+ 空/损坏/不支持文件的容错 | ~30s |
+| GUI | 布局断言（控件尺寸、重叠、可见性）+ 交互冒烟（增删、排序、进度、日志） | ~4s |
 
-* 源文件指纹未变（证明没改源文件）
-* 产物能被 Word 解析，段落/表格/图片/节数量达标
-* **没有任何表格或图片超出所在节的可用宽高**（按元素实际归属的节逐块判定）
-* 关键内容关键词全部命中（证明内容没丢）
+校验的核心是 `verify.py`，它把两条需求变成可执行断言：
+
+* **不出页面**：按每个元素**实际所属的节**判定宽高溢出（OOXML 的 `sectPr`
+  通常挂在段落的 `pPr` 里，所以按"段落内 sectPr"切节，而不是看 body 直接子元素）
+* **不丢内容**：关键词必须能在正文与表格里找到
+* **没改源文件**：合并前后 SHA-256 指纹逐一比对
+
+单独跑某一层也行：
+
+```powershell
+python tools\run_unit_tests.py                          # 单元测试
+python -m wmtool.cli --selftest .\selftest_out          # 端到端
+python tools\stress_test.py .\stress_out                # 压力测试
+python tools\gui_layout_check.py                        # 界面布局
+python tools\gui_smoketest.py .\selftest_out            # 界面交互
+```
 
 ---
 

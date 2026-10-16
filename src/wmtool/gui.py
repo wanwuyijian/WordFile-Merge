@@ -915,6 +915,15 @@ class App:
 
 def main() -> int:
     """GUI 入口。"""
+    # 打包成 exe 后，冻结支持必须最先调用：任何一个被牵连的子进程
+    # （PyInstaller 引导、multiprocessing）不加这句就会无限自我重启。
+    try:
+        import multiprocessing
+
+        multiprocessing.freeze_support()
+    except Exception:
+        pass
+
     try:
         app = App()
         return app.run()
