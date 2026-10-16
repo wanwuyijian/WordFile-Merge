@@ -3,7 +3,26 @@
 把**不同格式**的文件合并成**一个 Word 文档**：Word、PowerPoint、Excel、PDF、图片、Markdown、纯文本……
 一个都不少地搬进同一份 `.docx`，并且**全程不修改任何源文件**。
 
-![版本](https://img.shields.io/badge/version-1.0.0-blue) ![平台](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-lightgrey)
+[![Release](https://img.shields.io/github/v/release/wanwuyijian/WordFile-Merge?label=%E4%B8%8B%E8%BD%BD&color=2F6FED)](https://github.com/wanwuyijian/WordFile-Merge/releases/latest)
+![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows%2010%20%7C%2011-lightgrey)
+![许可](https://img.shields.io/badge/license-MIT-green)
+![验证](https://img.shields.io/badge/%E9%AA%8C%E8%AF%81-6%2F6%20%E9%80%9A%E8%BF%87-brightgreen)
+
+---
+
+## 下载
+
+> **不想看代码，直接要工具？** 去 [Releases 页面](https://github.com/wanwuyijian/WordFile-Merge/releases/latest)
+> 下载 `WordMergeTool.exe`，双击即用。**无需安装 Python、Office 或任何依赖。**
+
+| 文件 | 用途 |
+| --- | --- |
+| `WordMergeTool.exe` | 图形界面版，日常使用选这个 |
+| `WordMergeTool-CLI.exe` | 命令行版，适合批处理 / 脚本调用 |
+
+支持 Windows 10 / 11（64 位）。
+
+<!-- SCREENSHOT-PLACEHOLDER -->
 
 ---
 
@@ -17,24 +36,39 @@
 
 ---
 
+## 功能一览
+
+- 🗂 **66 种扩展名**：Word / PPT / Excel / PDF / 图片 / Markdown / 代码 / 旧格式
+- 🖱 **拖拽排序**：缩略图网格展示文件，拖动即可调整合并顺序
+- 📄 **一图一页 / 一页 PDF 一页**，**不做 OCR**，内容原样保留
+- 📐 **自动横竖版**：宽表、16:9 幻灯片、横向 PDF 自动转横版，绝不超出纸面
+- ✏️ **文字可编辑**：Word / Excel / Markdown 合并后文字仍可选可搜
+- 🔒 **源文件只读**：合并前后 SHA-256 指纹比对，把"没改源文件"变成可验证事实
+- 📝 **完整目录与书签**：每个源文件独立成节，带标题与导航书签
+- 🐞 **日志与崩溃日志**：出问题直接把 `crash-*.txt` 发回来即可定位
+
+---
+
 ## 快速开始
 
 ### 方式一：直接用打包好的 exe（推荐）
 
-1. 把 `WordMergeTool.exe` 拷到任意 Windows 10 / 11 电脑（**无需安装 Python、Office、任何依赖**）
-2. 双击运行
-3. 把文件拖进窗口，或点「添加文件 / 添加文件夹」
-4. **拖动缩略图**调整合并顺序
-5. 点「开始合并」，选择输出位置
+1. 从 [Releases](https://github.com/wanwuyijian/WordFile-Merge/releases/latest) 下载 `WordMergeTool.exe`
+2. 拷到任意 Windows 10 / 11 电脑（**无需安装 Python、Office、任何依赖**）
+3. 双击运行
+4. 把文件拖进窗口，或点「添加文件 / 添加文件夹」
+5. **拖动缩略图**调整合并顺序
+6. 点「开始合并」，选择输出位置
 
 ### 方式二：从源码运行
 
 ```powershell
-# 安装依赖
-python -m pip install python-docx python-pptx openpyxl pymupdf pillow tkinterdnd2
+git clone https://github.com/wanwuyijian/WordFile-Merge.git
+cd WordFile-Merge
+
+python -m pip install -r requirements.txt
 
 # 启动图形界面
-cd <项目目录>
 $env:PYTHONPATH = "$PWD\src"
 python -m wmtool
 ```
@@ -152,18 +186,27 @@ WordMergeTool-CLI.exe --selftest "D:\tmp\wmtool-test"
 
 ## 打包成 exe
 
+自己改完代码想重新出包：
+
 ```powershell
 # 一键打包（生成 dist\WordMergeTool.exe 与 dist\WordMergeTool-CLI.exe）
 powershell -ExecutionPolicy Bypass -File .\build.ps1 -Mode onefile
+
+# 再加 -Clean 先清干净；默认会在打完包后用 CLI 版跑一遍端到端自检
+powershell -ExecutionPolicy Bypass -File .\build.ps1 -Mode onefile -Clean
 ```
 
 打包要点（脚本已处理）：
 
 * 单文件模式，**目标机无需 Python**
 * 显式排除 `matplotlib`、`numpy`、`pandas`、`scipy` —— PyInstaller 常把它们从
-  PyMuPDF / Pillow 的依赖里误拖进来，体积会白白涨几十 MB
+  PyMuPDF / Pillow 的依赖里误拖进来，体积会白白涨几十 MB（排除后 46 MB）
 * 隐藏导入 `tkinterdnd2`（拖拽功能，PyInstaller 静态分析看不到）
 * 随包带上 `tkinterdnd2` 的原生库（`tkdnd`）
+* 打包前自动关闭残留进程（否则它会占住 `dist\logs` 里的日志文件，让清理失败）
+* **入口必须用 `packaging\entry_*.py`**，不能直接拿 `src\wmtool\gui.py` 当入口：
+  那样它会以 `__main__` 身份运行，包内的相对导入（`from . import ...`）会报
+  `attempted relative import with no known parent package`
 
 产物自检：把 exe 拷到另一台同架构的 Windows 上双击，能开界面即可。
 真正的"可移植性"取决于目标机是否有 **VC++ 运行库**（Windows 10/11 一般自带）。
@@ -274,9 +317,41 @@ A：纯 Python 没有可靠的 `.xls` 读取器。装 Microsoft Office 或 Libre
 **Q：日志在哪？**
 A：exe 同级的 `logs\` 目录。出错时优先把 `crash-*.txt` 发回来。
 
+**Q：exe 被杀毒软件/SmartScreen 拦了？**
+A：单文件 exe 未做代码签名，Windows 可能提示"未知发布者"。点"更多信息 → 仍要运行"即可；
+也可以直接从源码运行（见上方"方式二"）。
+
+---
+
+## 参与开发
+
+```powershell
+git clone https://github.com/wanwuyijian/WordFile-Merge.git
+cd WordFile-Merge
+python -m pip install -r requirements.txt
+
+# 改完代码先过一遍全部验证（四层 6 项，约 1 分钟）
+python tools\run_all_tests.py
+
+# 顺手做语法与导入体检（32 个文件、21 个模块）
+python tools\compile_check.py
+```
+
+新增一种格式支持只要三步：
+
+1. 在 `src/wmtool/converters/` 下写一个带 `convert(ctx)` 方法的类；
+2. 在 `converters/__init__.py` 的 `_build_registry()` 里登记扩展名；
+3. 在 `tools/stress_test.py` 或 `src/wmtool/selftest.py` 里补一个样例，让 CI 能覆盖它。
+
 ---
 
 ## 版本
 
-当前 **1.0.0**。版本号唯一事实来源是 `src/wmtool/__init__.py` 里的 `__version__`，
-变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+当前 **1.0.0**。版本号唯一事实来源是 [`src/wmtool/__init__.py`](src/wmtool/__init__.py) 里的 `__version__`，
+变更记录见 [CHANGELOG.md](CHANGELOG.md)，下载见 [Releases](https://github.com/wanwuyijian/WordFile-Merge/releases)。
+
+---
+
+## 许可
+
+[MIT](LICENSE)
